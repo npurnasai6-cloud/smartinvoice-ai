@@ -43,7 +43,7 @@ function App() {
 
     try {
   const response = await fetch(
-    "http://127.0.0.1:8000/upload-invoice",
+    "https://smartinvoice-ai-418s.onrender.com/upload-invoice",
   {
     method: "POST",
     body: formData,
