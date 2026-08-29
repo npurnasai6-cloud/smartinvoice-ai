@@ -11,9 +11,9 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-    "http://localhost:5173",
-    "https://smartinvoice-ai-1.onrender.com",
-],
+        "http://localhost:5173",
+        "https://smartinvoice-ai-1.onrender.com",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -71,11 +71,15 @@ def extract_invoice_data(text):
     # Extract multiple invoice items
     # --------------------------------------------------
 
+    # Amount is optional.
+    # If Amount exists, use it.
+    # If Amount does not exist, calculate:
+    # Quantity × Price
     item_pattern = re.compile(
         r"Item:\s*(.+?)\s*"
         r"Quantity:\s*(\d+)\s*"
-        r"Price:\s*₹?([\d,]+)\s*each\s*"
-        r"Amount:\s*₹?([\d,]+)",
+        r"Price:\s*₹?([\d,]+)\s*each"
+        r"(?:\s*Amount:\s*₹?([\d,]+))?",
         re.IGNORECASE
     )
 
@@ -86,7 +90,13 @@ def extract_invoice_data(text):
         item_name = match.group(1).strip()
         quantity = int(match.group(2))
         price = int(match.group(3).replace(",", ""))
-        amount = int(match.group(4).replace(",", ""))
+
+        # If invoice contains Amount, use it.
+        # Otherwise calculate it.
+        if match.group(4):
+            amount = int(match.group(4).replace(",", ""))
+        else:
+            amount = quantity * price
 
         item = {
             "item": item_name,
@@ -292,6 +302,8 @@ def generate_suggestions(verification_result):
                 )
 
     return suggestions
+
+
 # --------------------------------------------------
 # AGENT 4: ALERT AGENT
 # --------------------------------------------------
@@ -334,6 +346,8 @@ def generate_alert(verification_result):
         "message": "Invoice contains issues that require review.",
         "action": "Review the invoice before approval."
     }
+
+
 # --------------------------------------------------
 # AGENT 5: APPROVAL AGENT
 # --------------------------------------------------
@@ -355,6 +369,8 @@ def generate_approval(verification_result, alert):
             "reason": "Invoice contains verification errors.",
             "next_action": "Do not approve payment until the issues are resolved."
         }
+
+
 # --------------------------------------------------
 # HOME
 # --------------------------------------------------
@@ -403,12 +419,14 @@ async def upload_invoice(file: UploadFile = File(...)):
     # Agent 3: Generate suggestions
     suggestions = generate_suggestions(verification_result)
 
+    # Agent 4: Generate alert
     alert = generate_alert(verification_result)
 
+    # Agent 5: Generate approval
     approval = generate_approval(
-    verification_result,
-    alert
-)
+        verification_result,
+        alert
+    )
 
     return {
         "message": "Invoice processed successfully!",
